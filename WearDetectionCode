@@ -128,11 +128,11 @@ for test in TEST_CASES:
             print("🔄 Vendor Action: Repackage and place item back into INVENTORY.")
 
     elif return_type == '4':
-        print("❌ Return denied: Lightly used items are not eligible for return.")
-        print("🔄 Vendor Action: List item for resale on EBAY as used condition.")
+        print("✅ Return approved")
+        print("🔄 Vendor Action: List item for resale on EBAY as used condition. (Charge user?)")
 
     elif return_type == '5':
-        print("❌ Return denied: Used and damaged items are not eligible for return.")
+        print("✅ Return Approved: Used and damaged items are eligible for return.(Charge user?)")
         print("🔄 Vendor Action: Send item to RECYCLING due to excessive wear.")
 
     else:
