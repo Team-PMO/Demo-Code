@@ -1,25 +1,28 @@
-from google.colab import files
-uploaded = files.upload()
 # Install Generative AI SDK.
 !pip install -q -U google-generativeai
 
 # Import libraries
-from google.colab import userdata
+from google.colab import files, userdata
 import google.generativeai as genai
 import re
 from PIL import Image
 import cv2
 import numpy as np
+from IPython.display import display
+
+# Upload the image
+uploaded = files.upload()
+input_image = list(uploaded.keys())[0]
+print(f"Uploaded image: {input_image}")
 
 # Set up API
-API_KEY = userdata.get('gemini')
+API_KEY = userdata.get('NikKey')
 genai.configure(api_key=API_KEY)
 
 # Load Gemini model
 model = genai.GenerativeModel(model_name='gemini-1.5-pro')
 
 # Load image
-input_image = "image.jpg"  # @param {type: 'string'}
 img = Image.open(input_image)
 
 # Ask Gemini to detect defects
@@ -35,22 +38,24 @@ response = model.generate_content([
     ),
 ])
 
+# Show raw response for debugging
 result = response.text
+print("Gemini raw output:\n", result)
 
 # Parse bounding box output
 def parse_bounding_box(response):
     bounding_boxes = re.findall(r'\[(\d+,\s*\d+,\s*\d+,\s*\d+,\s*[\w\s]+)\]', response)
-
     parsed_boxes = []
     for box in bounding_boxes:
         parts = box.split(',')
         numbers = list(map(int, parts[:-1]))
         label = parts[-1].strip()
         parsed_boxes.append((numbers, label))
-
     return parsed_boxes
 
 bounding_box = parse_bounding_box(result)
+print(f"Parsed bounding boxes: {bounding_box}")
+
 label_colors = {}
 
 # Draw bounding boxes on defects
@@ -92,7 +97,11 @@ def draw_bounding_boxes(image, bounding_boxes_with_labels):
     image = Image.fromarray(image)
     return image
 
-# Run and save output
-output = draw_bounding_boxes(img, bounding_box)
-output.show()  # Display the result
-output.save("output_image_with_defects.jpg")  # Save the result
+# Run only if defects are detected
+if bounding_box:
+    output = draw_bounding_boxes(img, bounding_box)
+    display(output)
+    output.save("output_image_with_defects.jpg")
+    print("✅ Defect image saved as 'output_image_with_defects.jpg'")
+else:
+    print("⚠️ No defects detected.")
