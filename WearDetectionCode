@@ -1,138 +1,138 @@
+from google.colab import files
+print("Upload all test images:")
+uploaded = files.upload()
 # Install Generative AI SDK.
 !pip install -q -U google-generativeai
 
 # Import libraries
-from google.colab import files, userdata
+from google.colab import userdata
 import google.generativeai as genai
 import re
 from PIL import Image
 import cv2
 import numpy as np
+from datetime import datetime
 from IPython.display import display
 
 # Authenticate API
 API_KEY = userdata.get('NikKey')
 genai.configure(api_key=API_KEY)
 
-# Load Gemini model
 model = genai.GenerativeModel(model_name='gemini-1.5-pro')
 
-# STEP 1: Upload and extract serial number from the tag
-print("Upload the TAG photo (with serial number):")
-tag_upload = files.upload()
-tag_image_name = list(tag_upload.keys())[0]
-print(f"Uploaded tag image: {tag_image_name}")
-tag_img = Image.open(tag_image_name)
+# Test case setup with specific reference images per scenario
+TEST_CASES = [
+    {
+        "name": "Unopened (Valid)",
+        "serial_number": "JKL012",
+        "purchase_date": "2024-01-01",
+        "arrival_date": "2024-01-05",
+        "complaint_date": "2024-01-20",
+        "return_type": "2",
+        "reference_image": "unopened_reference.jpg",
+        "test_image": "unopened_test.jpg",
+        "tag_image": "tag_image_valid.jpg"
+    },
+    {
+        "name": "Unused but Opened (Valid)",
+        "serial_number": "MNO345",
+        "purchase_date": "2024-01-01",
+        "arrival_date": "2024-01-05",
+        "complaint_date": "2024-01-15",
+        "return_type": "3",
+        "reference_image": "opened_reference.jpg",
+        "test_image": "opened_test.jpg",
+        "tag_image": "tag_image_valid.jpg"
+    },
+    {
+        "name": "Defective on Arrival (Valid)",
+        "serial_number": "GHI789",
+        "purchase_date": "2024-01-01",
+        "arrival_date": "2024-01-05",
+        "complaint_date": "2024-01-06",
+        "return_type": "1",
+        "reference_image": "perfect_reference.jpg",
+        "test_image": "defective_image.jpg",
+        "tag_image": "tag_image_valid.jpg"
+    },
+    {
+        "name": "Lightly Used (Denied)",
+        "serial_number": "PQR678",
+        "purchase_date": "2024-01-01",
+        "arrival_date": "2024-01-05",
+        "complaint_date": "2024-01-10",
+        "return_type": "4",
+        "reference_image": "perfect_reference.jpg",
+        "test_image": "used_image.jpg",
+        "tag_image": "tag_image_valid.jpg"
+    },
+    {
+        "name": "Final Sale Item",
+        "serial_number": "ABC123",
+        "purchase_date": "2024-01-01",
+        "arrival_date": "2024-01-05",
+        "complaint_date": "2024-01-06",
+        "return_type": "2",
+        "reference_image": "unopened_reference.jpg",
+        "test_image": "unopened_test.jpg",
+        "tag_image": "tag_image.jpg"
+    }
+]
 
-# Ask Gemini to extract the serial number from the tag image
-serial_response = model.generate_content([
-    tag_img,
-    (
-        "Extract the serial number from this product tag. "
-        "Only return the serial number as plain text. "
-        "If no serial number is visible, reply 'NO SERIAL NUMBER FOUND'."
-    )
-])
-serial_number = serial_response.text.strip()
-print(f"🔑 Serial Number: {serial_number}")
+for test in TEST_CASES:
+    print(f"\nRunning Test Case: {test['name']}")
+    serial_number = test['serial_number']
+    if serial_number in ['ABC123', 'DEF456']:
+        print("❌ This item is FINAL SALE. No returns allowed.")
+        continue
 
-if "NO SERIAL NUMBER FOUND" in serial_number.upper():
-    print("⚠️ No serial number detected on the tag image.")
-else:
-    print(f"✅ Serial number detected: {serial_number}")
+    purchase_date = datetime.strptime(test['purchase_date'], '%Y-%m-%d')
+    arrival_date = datetime.strptime(test['arrival_date'], '%Y-%m-%d')
+    complaint_date = datetime.strptime(test['complaint_date'], '%Y-%m-%d')
+    return_type = test['return_type']
 
-# STEP 2: Upload the reference (perfect) image
-print("\nUpload the REFERENCE (perfect) image:")
-ref_upload = files.upload()
-reference_image_name = list(ref_upload.keys())[0]
-print(f"Uploaded reference image: {reference_image_name}")
-reference_img = Image.open(reference_image_name)
+    reference_img = Image.open(test['reference_image'])
+    test_img = Image.open(test['test_image'])
 
-# STEP 3: Upload the test (defective) image
-print("\nUpload the TEST (inspection) image:")
-test_upload = files.upload()
-test_image_name = list(test_upload.keys())[0]
-print(f"Uploaded test image: {test_image_name}")
-test_img = Image.open(test_image_name)
+    response = model.generate_content([
+        reference_img,
+        test_img,
+        "Compare these images to identify defects. If no defects are found, reply 'NO DEFECTS FOUND'."
+    ])
+    result = response.text.strip()
+    print(f"Gemini result: {result}")
 
-# STEP 4: Compare images to detect defects
-response = model.generate_content([
-    reference_img,
-    test_img,
-    (
-        "Compare these two product images. "
-        "The first is the perfect reference, and the second is the test item. "
-        "Identify only real imperfections or differences such as loose threads, tears, rips, stains, holes, fabric fraying, "
-        "color inconsistencies, missing parts, or any other damage. "
-        "If the two images are identical or no defects are found, explicitly respond with 'NO DEFECTS FOUND'. "
-        "If defects are found, return them as a list: [ymin, xmin, ymax, xmax, defect_type]. "
-        "Return separate lists for multiple defects."
-    ),
-])
+    days_since_arrival = (complaint_date - arrival_date).days
 
-# Show Gemini's response
-result = response.text
-print("\nGemini raw output:\n", result)
+    if return_type == '1':
+        if days_since_arrival > 2:
+            print("❌ Return denied: Defective returns must be reported within 1-2 days.")
+        elif "NO DEFECTS FOUND" in result.upper():
+            print("❌ Return denied: No defects detected.")
+        else:
+            print("✅ Return approved: Defective on arrival.")
 
-# Parse and draw results
-def parse_bounding_box(response):
-    bounding_boxes = re.findall(r'\[(\d+,\s*\d+,\s*\d+,\s*\d+,\s*[\w\s]+)\]', response)
-    parsed_boxes = []
-    for box in bounding_boxes:
-        parts = box.split(',')
-        numbers = list(map(int, parts[:-1]))
-        label = parts[-1].strip()
-        parsed_boxes.append((numbers, label))
-    return parsed_boxes
+    elif return_type == '2':
+        if days_since_arrival > 30:
+            print("❌ Return denied: Unopened returns must be within 30 days.")
+        elif "NO DEFECTS FOUND" not in result.upper():
+            print("❌ Return denied: Product shows signs of use or defects.")
+        else:
+            print("✅ Return approved: Unopened product.")
 
-if "NO DEFECTS FOUND" in result.upper():
-    print("\n✅ No defects detected. The test image matches the reference.")
-else:
-    bounding_box = parse_bounding_box(result)
-    print(f"\nParsed bounding boxes: {bounding_box}")
+    elif return_type == '3':
+        if days_since_arrival > 15:
+            print("❌ Return denied: Opened returns must be within 15 days.")
+        elif "NO DEFECTS FOUND" not in result.upper():
+            print("❌ Return denied: Product shows defects, not eligible.")
+        else:
+            print("✅ Return approved: Opened but unused.")
 
-    if bounding_box:
-        label_colors = {}
+    elif return_type == '4':
+        print("❌ Return denied: Lightly used items are not eligible for return.")
 
-        def draw_bounding_boxes(image, bounding_boxes_with_labels):
-            if image.mode != 'RGB':
-                image = image.convert('RGB')
-            image = np.array(image)
-            for bounding_box, label in bounding_boxes_with_labels:
-                width, height = image.shape[1], image.shape[0]
-                ymin, xmin, ymax, xmax = bounding_box
-                x1 = int(xmin / 1000 * width)
-                y1 = int(ymin / 1000 * height)
-                x2 = int(xmax / 1000 * width)
-                y2 = int(ymax / 1000 * height)
+    elif return_type == '5':
+        print("❌ Return denied: Used and damaged items are not eligible for return.")
 
-                if label not in label_colors:
-                    color = np.random.randint(0, 256, (3,)).tolist()
-                    label_colors[label] = color
-                else:
-                    color = label_colors[label]
-
-                font = cv2.FONT_HERSHEY_SIMPLEX
-                font_scale = 0.5
-                font_thickness = 1
-                box_thickness = 2
-                text_size = cv2.getTextSize(label, font, font_scale, font_thickness)[0]
-
-                text_bg_x1 = x1
-                text_bg_y1 = y1 - text_size[1] - 5
-                text_bg_x2 = x1 + text_size[0] + 8
-                text_bg_y2 = y1
-
-                cv2.rectangle(image, (text_bg_x1, text_bg_y1), (text_bg_x2, text_bg_y2), color, -1)
-                cv2.putText(image, label, (x1 + 2, y1 - 5), font, font_scale, (255, 255, 255), font_thickness)
-                cv2.rectangle(image, (x1, y1), (x2, y2), color, box_thickness)
-
-            image = Image.fromarray(image)
-            return image
-
-        output = draw_bounding_boxes(test_img, bounding_box)
-        display(output)
-        output.save("output_image_with_defects.jpg")
-        print("✅ Defect image saved as 'output_image_with_defects.jpg'")
     else:
-        print("⚠️ No bounding boxes detected, but Gemini did not confirm the images are identical.")
+        print("❌ Invalid return type selected.")
