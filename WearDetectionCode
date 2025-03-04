@@ -3,10 +3,6 @@ print("Upload all test images:")
 uploaded = files.upload()
 # Install Generative AI SDK.
 !pip install -q -U google-generativeai
-
-# Import libraries
-from google.colab import userdata
-import google.generativeai as genai
 import re
 from PIL import Image
 import cv2
@@ -111,6 +107,7 @@ for test in TEST_CASES:
             print("❌ Return denied: No defects detected.")
         else:
             print("✅ Return approved: Defective on arrival.")
+            print("🔄 Vendor Action: Send item to RECYCLING due to confirmed defects.")
 
     elif return_type == '2':
         if days_since_arrival > 30:
@@ -119,6 +116,7 @@ for test in TEST_CASES:
             print("❌ Return denied: Product shows signs of use or defects.")
         else:
             print("✅ Return approved: Unopened product.")
+            print("🔄 Vendor Action: Place item back into INVENTORY as new.")
 
     elif return_type == '3':
         if days_since_arrival > 15:
@@ -127,12 +125,15 @@ for test in TEST_CASES:
             print("❌ Return denied: Product shows defects, not eligible.")
         else:
             print("✅ Return approved: Opened but unused.")
+            print("🔄 Vendor Action: Repackage and place item back into INVENTORY.")
 
     elif return_type == '4':
         print("❌ Return denied: Lightly used items are not eligible for return.")
+        print("🔄 Vendor Action: List item for resale on EBAY as used condition.")
 
     elif return_type == '5':
         print("❌ Return denied: Used and damaged items are not eligible for return.")
+        print("🔄 Vendor Action: Send item to RECYCLING due to excessive wear.")
 
     else:
         print("❌ Invalid return type selected.")
