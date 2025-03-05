@@ -13,3 +13,23 @@ model = genai.GenerativeModel(model_name='gemini-1.5-pro')
 product_type = input("What type of product are you looking for? (e.g., shoe, jacket, backpack): ").strip()
 
 help_offer = input(f"Do you want help finding the right {product_type} for you? (yes/no): ").strip().lower()
+
+if help_offer == 'yes':
+    knows_specs = input(f"Do you already know the specifications of the {product_type} you want? (yes/no): ").strip().lower()
+
+    if knows_specs == 'no':
+        use_case = input(f"What do you want the {product_type} for? (e.g., running, casual wear, hiking): ").strip()
+
+        spec_suggestion_response = model.genearate_content([
+            f"Product type: {product_type}",
+            f"Use case: {use_case}",
+            f"Based on the product type and use case, suggest specific ideal specifications like size, color, material, style, and other important features that fit the user's needs. Only provide the specifications, no descriptions, with a really brief one-two sentence reason as to why you chose these specs."
+        ])
+
+        suggestions = spec_suggestion_response.text.strip()
+        print(f"🔎 Suggested Specifications for your {product_type}:\n{suggestions}")
+    else:
+        print(f"Great! You can proceed to search for your ideal {product_type} based on your known specifications.")
+
+else:
+    print("Okay! Let us know if you need help later.")
