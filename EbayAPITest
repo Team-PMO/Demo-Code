@@ -23,19 +23,29 @@ EBAY_SALES_DATA = {
     'Heavily Used': [5.00, 7.00, 6.50, 5.50, 4.00]
 }
 
+# Upload reference (new) and used product images
+print("Upload the REFERENCE (perfect) image:")
+ref_upload = files.upload()
+reference_image_name = list(ref_upload.keys())[0]
+reference_img = Image.open(reference_image_name)
+
 print("Upload the USED product image:")
 used_upload = files.upload()
 used_image_name = list(used_upload.keys())[0]
 used_img = Image.open(used_image_name)
 
-# Step 1: Rate the condition of the used product
-rating_response = model.generate_content([
-    reference_img,
-    used_img,
-    "Compare these two images. Based on visible wear, assign a condition rating of either: 'Like New', 'Slightly Used', 'Used', or 'Heavily Used'."
-])
-condition_rating = rating_response.text.strip()
-print(f"🔎 Condition Rating: {condition_rating}")
+# Step 1: Check if images are identical
+if np.array_equal(np.array(reference_img), np.array(used_img)):
+    condition_rating = "Like New"
+    print(f"🔎 Condition Rating: {condition_rating} (Images are identical)")
+else:
+    rating_response = model.generate_content([
+        reference_img,
+        used_img,
+        "Compare these two images. Based on visible wear, assign a condition rating of either: 'Like New', 'Slightly Used', 'Used', or 'Heavily Used'."
+    ])
+    condition_rating = rating_response.text.strip()
+    print(f"🔎 Condition Rating: {condition_rating}")
 
 # Step 2: Generate eBay description
 ebay_description_response = model.generate_content([
@@ -45,54 +55,19 @@ ebay_description_response = model.generate_content([
 eb_description = ebay_description_response.text.strip()
 print(f"📝 eBay Listing Description:\n{eb_description}")
 
-# Step 3: Get average eBay sold price
-
-def get_average_ebay_price(keywords):
-    headers = {'X-EBAY-SOA-SECURITY-APPNAME': EBAY_APP_ID}
-    params = {
-        'OPERATION-NAME': 'findCompletedItems',
-        'SERVICE-VERSION': '1.13.0',
-        'SECURITY-APPNAME': EBAY_APP_ID,
-        'RESPONSE-DATA-FORMAT': 'JSON',
-        'REST-PAYLOAD': '',
-        'keywords': keywords,
-        'categoryId': '15724',  # Example: Clothing category
-        'itemFilter(0).name': 'Condition',
-        'itemFilter(0).value': 'Used',
-        'itemFilter(1).name': 'SoldItemsOnly',
-        'itemFilter(1).value': 'true',
-        'paginationInput.entriesPerPage': '50'
-    }
-    response = requests.get('https://svcs.ebay.com/services/search/FindingService/v1', params=params, headers=headers)
-    data = response.json()
-
-    prices = []
-    try:
-        for item in data['findCompletedItemsResponse'][0]['searchResult'][0]['item']:
-            price = float(item['sellingStatus'][0]['currentPrice'][0]['__value__'])
-            prices.append(price)
-    except KeyError:
-        print("❌ No sold items found for this product.")
-        return None
-
+# Step 3: Calculate average price from stand-in data
+def get_average_stand_in_price(condition):
+    prices = EBAY_SALES_DATA.get(condition, [])
     if prices:
         average_price = sum(prices) / len(prices)
-        print(f"💰 Average eBay sold price: ${average_price:.2f}")
+        print(f"💰 Average price from recent sales (stand-in data): ${average_price:.2f}")
         return average_price
     else:
-        print("❌ No price data available.")
+        print("❌ No price data available for this condition.")
         return None
 
-# Step 4: Search eBay for pricing
-keywords_response = model.generate_content([
-    VENDOR_DESCRIPTION,
-    "Generate optimal eBay search keywords for finding similar sold items."
-])
-search_keywords = keywords_response.text.strip()
-print(f"🔑 eBay Search Keywords: {search_keywords}")
-
-average_price = get_average_ebay_price(search_keywords)
+average_price = get_average_stand_in_price(condition_rating)
 if average_price:
-    print(f"🔖 Suggested listing price based on recent sales: ${average_price:.2f}")
+    print(f"🔖 Suggested listing price: ${average_price:.2f}")
 else:
     print("❌ Unable to determine suggested price.")
