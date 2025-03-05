@@ -1,0 +1,15 @@
+# Install Generative AI SDK
+!pip install -q -U google-generativeai
+
+from google.colab import userdata
+import google.generativeai as genai
+
+# Authenticate Gemini API
+API_KEY = userdata.get('NikKey')
+genai.configure(api_key=API_KEY)
+model = genai.GenerativeModel(model_name='gemini-1.5-pro')
+
+# Start the product search
+product_type = input("What type of product are you looking for? (e.g., shoe, jacket, backpack): ").strip()
+
+help_offer = input(f"Do you want help finding the right {product_type} for you? (yes/no): ").strip().lower()
