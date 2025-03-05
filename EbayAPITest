@@ -1,30 +1,27 @@
-#USING EBAY API
 # Install Generative AI SDK and required libraries
 !pip install -q -U google-generativeai
-!pip install -q requests
 
 from google.colab import files, userdata
-import requests
 from PIL import Image
 import numpy as np
 from IPython.display import display
+import google.generativeai as genai
 
 # Authenticate Gemini API
 API_KEY = userdata.get('NikKey')
-import google.generativeai as genai
 genai.configure(api_key=API_KEY)
-
-# Set eBay API Key
-EBAY_APP_ID = 'YOUR_EBAY_API_KEY_HERE'
+model = genai.GenerativeModel(model_name='gemini-1.5-pro')
 
 # Sample product description from original vendor
 VENDOR_DESCRIPTION = "Premium White Cotton T-Shirt made from 100% organic cotton. Features a classic fit, durable stitching, and a soft-touch finish."
 
-# Upload reference (new) and used product images
-print("Upload the REFERENCE (perfect) image:")
-ref_upload = files.upload()
-reference_image_name = list(ref_upload.keys())[0]
-reference_img = Image.open(reference_image_name)
+# Stand-in eBay sales data
+EBAY_SALES_DATA = {
+    'Like New': [25.00, 27.50, 30.00, 28.00, 26.00],
+    'Slightly Used': [18.00, 20.00, 22.50, 19.00, 21.00],
+    'Used': [12.00, 14.00, 13.50, 15.00, 11.00],
+    'Heavily Used': [5.00, 7.00, 6.50, 5.50, 4.00]
+}
 
 print("Upload the USED product image:")
 used_upload = files.upload()
