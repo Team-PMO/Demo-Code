@@ -1,0 +1,101 @@
+#USING EBAY API
+# Install Generative AI SDK and required libraries
+!pip install -q -U google-generativeai
+!pip install -q requests
+
+from google.colab import files, userdata
+import requests
+from PIL import Image
+import numpy as np
+from IPython.display import display
+
+# Authenticate Gemini API
+API_KEY = userdata.get('NikKey')
+import google.generativeai as genai
+genai.configure(api_key=API_KEY)
+
+# Set eBay API Key
+EBAY_APP_ID = 'YOUR_EBAY_API_KEY_HERE'
+
+# Sample product description from original vendor
+VENDOR_DESCRIPTION = "Premium White Cotton T-Shirt made from 100% organic cotton. Features a classic fit, durable stitching, and a soft-touch finish."
+
+# Upload reference (new) and used product images
+print("Upload the REFERENCE (perfect) image:")
+ref_upload = files.upload()
+reference_image_name = list(ref_upload.keys())[0]
+reference_img = Image.open(reference_image_name)
+
+print("Upload the USED product image:")
+used_upload = files.upload()
+used_image_name = list(used_upload.keys())[0]
+used_img = Image.open(used_image_name)
+
+# Step 1: Rate the condition of the used product
+rating_response = model.generate_content([
+    reference_img,
+    used_img,
+    "Compare these two images. Based on visible wear, assign a condition rating of either: 'Like New', 'Slightly Used', 'Used', or 'Heavily Used'."
+])
+condition_rating = rating_response.text.strip()
+print(f"🔎 Condition Rating: {condition_rating}")
+
+# Step 2: Generate eBay description
+ebay_description_response = model.generate_content([
+    VENDOR_DESCRIPTION,
+    f"Create an engaging eBay listing description for a product in '{condition_rating}' condition based on this vendor description. Highlight its features, current condition, and appeal to buyers."
+])
+eb_description = ebay_description_response.text.strip()
+print(f"📝 eBay Listing Description:\n{eb_description}")
+
+# Step 3: Get average eBay sold price
+
+def get_average_ebay_price(keywords):
+    headers = {'X-EBAY-SOA-SECURITY-APPNAME': EBAY_APP_ID}
+    params = {
+        'OPERATION-NAME': 'findCompletedItems',
+        'SERVICE-VERSION': '1.13.0',
+        'SECURITY-APPNAME': EBAY_APP_ID,
+        'RESPONSE-DATA-FORMAT': 'JSON',
+        'REST-PAYLOAD': '',
+        'keywords': keywords,
+        'categoryId': '15724',  # Example: Clothing category
+        'itemFilter(0).name': 'Condition',
+        'itemFilter(0).value': 'Used',
+        'itemFilter(1).name': 'SoldItemsOnly',
+        'itemFilter(1).value': 'true',
+        'paginationInput.entriesPerPage': '50'
+    }
+    response = requests.get('https://svcs.ebay.com/services/search/FindingService/v1', params=params, headers=headers)
+    data = response.json()
+
+    prices = []
+    try:
+        for item in data['findCompletedItemsResponse'][0]['searchResult'][0]['item']:
+            price = float(item['sellingStatus'][0]['currentPrice'][0]['__value__'])
+            prices.append(price)
+    except KeyError:
+        print("❌ No sold items found for this product.")
+        return None
+
+    if prices:
+        average_price = sum(prices) / len(prices)
+        print(f"💰 Average eBay sold price: ${average_price:.2f}")
+        return average_price
+    else:
+        print("❌ No price data available.")
+        return None
+
+# Step 4: Search eBay for pricing
+keywords_response = model.generate_content([
+    VENDOR_DESCRIPTION,
+    "Generate optimal eBay search keywords for finding similar sold items."
+])
+search_keywords = keywords_response.text.strip()
+print(f"🔑 eBay Search Keywords: {search_keywords}")
+
+average_price = get_average_ebay_price(search_keywords)
+if average_price:
+    print(f"🔖 Suggested listing price based on recent sales: ${average_price:.2f}")
+else:
+    print("❌ Unable to determine suggested price.")
